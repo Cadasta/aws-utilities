@@ -1,0 +1,35 @@
+---
+- hosts: tag_Name_utility-ec2-instance
+  remote_user: ubuntu
+  become: yes
+  become_user: root
+  tasks:
+    - name: Install OS packagees
+      apt: name={{item}} state=present update_cache=true
+      with_items:
+        - build-essential
+        - ruby-dev
+        - git
+        - bundler
+
+    - name: Clone slack-timezone-converter code
+      git: repo=https://github.com/Cadasta/slack-timezone-converter
+           dest=/opt/slack-timezone-converter
+
+    - name: Install Ruby gems using Bundler
+      command: chdir=/opt/slack-timezone-converter
+               bundle install --deployment
+               creates=/home/ubuntu/.bundler/ruby/1.9.1/slack-rtmapi-58c209f40f02
+
+    - include_vars: slack-api-token.yml
+
+    - name: Copy Slack API token
+      copy: content="{{slack_api_token}}"
+            dest=/opt/slack-timezone-converter/slack-api-token.txt
+
+    - name: Set up slack-timezone-converter as a service
+      copy: src=slack-timezone-converter.conf
+            dest=/etc/init/slack-timezone-converter.conf
+
+    - name: Start slack-timezone-converter service
+      service: name=slack-timezone-converter state=started
